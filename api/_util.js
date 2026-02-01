@@ -165,7 +165,7 @@ export async function getTenantAccessToken(){
 
   const appId = mustEnv("LARK_APP_ID");
   const appSecret = mustEnv("LARK_APP_SECRET");
-  const r = await axios.post("${LARK_OPEN_API_BASE}/open-apis/auth/v3/tenant_access_token/internal", {
+  const r = await axios.post(`${LARK_OPEN_API_BASE}/open-apis/auth/v3/tenant_access_token/internal`, {
     app_id: appId,
     app_secret: appSecret
   }, { timeout: 20000 });
