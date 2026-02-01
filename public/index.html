@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SHD — Google Sheet ↔ Lark/Feishu Base Sync</title>
+  <style>
+    :root{
+      --bg:#0b1220;--card:rgba(255,255,255,.08);--card2:rgba(255,255,255,.06);
+      --stroke:rgba(255,255,255,.14);--text:#eaf0ff;--muted:rgba(234,240,255,.72);
+      --primary:#7dd3fc;--good:#34d399;--bad:#fb7185;--warn:#fbbf24;
+      --r:18px;--shadow:0 20px 50px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1100px 520px at 15% 20%, rgba(125,211,252,.18), transparent 55%),
+        radial-gradient(900px 460px at 80% 25%, rgba(52,211,153,.14), transparent 60%),
+        radial-gradient(900px 520px at 45% 95%, rgba(251,191,36,.10), transparent 55%),
+        var(--bg);
+      min-height:100vh;
+    }
+    .wrap{max-width:1060px;margin:0 auto;padding:28px 16px 60px}
+    .top{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;
+    }
+    .brand{
+      display:flex;align-items:center;gap:10px;
+    }
+    .logo{
+      width:38px;height:38px;border-radius:12px;
+      background:linear-gradient(135deg, rgba(125,211,252,.85), rgba(52,211,153,.75));
+      box-shadow:0 14px 30px rgba(0,0,0,.28);
+    }
+    .brand h1{margin:0;font-size:16px;letter-spacing:.2px}
+    .brand p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;
+      background:rgba(255,255,255,.06);border:1px solid var(--stroke);
+      color:var(--muted);font-size:12px;
+    }
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+    @media (max-width: 980px){.grid{grid-template-columns:1fr}}
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.06));
+      border:1px solid var(--stroke);
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.10);
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      background:rgba(255,255,255,.03);
+    }
+    .card .hd h2{margin:0;font-size:14px}
+    .card .bd{padding:16px}
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    input, textarea, select{
+      width:100%;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.16);
+      background:rgba(0,0,0,.18);
+      color:var(--text);
+      padding:10px 12px;
+      outline:none;
+    }
+    textarea{min-height:90px;resize:vertical}
+    .row{display:flex;gap:10px}
+    .row > *{flex:1}
+    .btns{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+    button{
+      border:0;border-radius:12px;padding:10px 12px;font-weight:600;
+      background:rgba(255,255,255,.10);
+      color:var(--text);
+      border:1px solid rgba(255,255,255,.18);
+      cursor:pointer;
+    }
+    button.primary{background:rgba(125,211,252,.18);border-color:rgba(125,211,252,.35)}
+    button.good{background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.35)}
+    button.bad{background:rgba(251,113,133,.14);border-color:rgba(251,113,133,.35)}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .mode{
+      display:flex;gap:10px;flex-wrap:wrap;margin-top:10px
+    }
+    .chip{
+      flex:1;min-width:220px;
+      display:flex;align-items:center;justify-content:space-between;gap:10px;
+      padding:12px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      cursor:pointer;
+      user-select:none;
+    }
+    .chip small{color:var(--muted)}
+    .chip[data-active="true"]{border-color:rgba(125,211,252,.45);background:rgba(125,211,252,.12)}
+    .chip[data-active="false"]{opacity:.65}
+    .note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+    .log{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:12px;line-height:1.45;
+      background:rgba(0,0,0,.25);
+      border:1px solid rgba(255,255,255,.12);
+      padding:12px;border-radius:14px;
+      max-height:340px;overflow:auto;white-space:pre-wrap;
+    }
+    .pairs{display:flex;flex-direction:column;gap:10px}
+    .pair{
+      padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06)
+    }
+    .pair b{display:block;font-size:12px;margin-bottom:6px}
+    .pair .meta{font-size:11px;color:var(--muted);word-break:break-all}
+    .pair .actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+    .kbd{font-family: ui-monospace, monospace;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:2px 6px;border-radius:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>Google Sheet ↔ Lark/Feishu Base Sync</h1>
+          <p>Internal only • OAuth user • Background sync via Cron</p>
+        </div>
+      </div>
+      <div class="pill" id="authPill">🔒 Not signed in</div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="hd">
+          <h2>1) Connect & Sync</h2>
+          <div class="pill" style="gap:6px">
+            <span>History Sheet:</span>
+            <span class="kbd" id="historyIdLabel">loading…</span>
+          </div>
+        </div>
+        <div class="bd">
+          <div class="btns">
+            <button class="primary" id="btnLogin">Login with Google (SHD)</button>
+            <button id="btnLogout" disabled>Logout</button>
+          </div>
+
+          <label>Google Sheet URL</label>
+          <input id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/.../edit#gid=..." disabled />
+
+          <label>Lark/Feishu Base URL</label>
+          <input id="larkUrl" placeholder="https://...larksuite.com/base/<baseId>?table=<tableId>" disabled />
+
+          <div class="mode" aria-label="Master mode">
+            <div class="chip" id="modeLark" data-active="true" title="Lark เป็นฝั่งหลัก">
+              <div>
+                <b>Lark/Feishu → Sheet</b>
+                <small>ถ้า Lark มีข้อมูล จะ overwrite ไป Sheet</small>
+              </div>
+              <span>✅</span>
+            </div>
+            <div class="chip" id="modeSheet" data-active="false" title="Sheet เป็นฝั่งหลัก">
+              <div>
+                <b>Sheet → Lark/Feishu</b>
+                <small>ถ้า Sheet มีข้อมูล จะ overwrite ไป Lark</small>
+              </div>
+              <span>✅</span>
+            </div>
+          </div>
+
+          <div class="btns">
+            <button class="good" id="btnSavePair" disabled>Save Pair</button>
+            <button class="primary" id="btnSyncNow" disabled>Sync Now</button>
+            <button id="btnLoadPairs" disabled>Reload Saved Pairs</button>
+          </div>
+
+          <p class="note">
+            • กด <b>Save Pair</b> เพื่อให้ sync ต่อได้แม้ปิดเว็บ (cron เรียก <span class="kbd">/api/sync</span>)<br/>
+            • ถ้าเจอข้อมูลใหญ่เกิน timeout ให้แยกหลายคู่ / จำกัดช่วง (ต่อยอดได้)
+          </p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="hd">
+          <h2>2) Saved Pairs</h2>
+          <div class="pill"><span id="pairsCount">0</span> pairs</div>
+        </div>
+        <div class="bd">
+          <div class="pairs" id="pairsList"></div>
+          <p class="note" style="margin-top:12px">
+            Cron เรียก: <span class="kbd" id="cronUrl"></span><br/>
+            ตั้งทุก 5–30 นาทีได้ตามเหมาะสม
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:14px">
+      <div class="hd">
+        <h2>Logs</h2>
+        <div class="pill">Tip: ดู Vercel logs ได้ด้วย</div>
+      </div>
+      <div class="bd">
+        <div class="log" id="log"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ======= CONFIG injected from server (safe public values) =======
+    const CONFIG = {
+      historySheetId: null,
+      allowedDomain: null
+    };
+
+    const el = (id) => document.getElementById(id);
+    const logEl = el('log');
+    function log(...args){
+      const s = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+      logEl.textContent += (logEl.textContent ? "\n" : "") + s;
+      logEl.scrollTop = logEl.scrollHeight;
+      console.log(...args);
+    }
+
+    // ======= state =======
+    let refreshToken = localStorage.getItem('google_refresh_token') || '';
+    let userEmail = localStorage.getItem('google_user_email') || '';
+    let masterMode = 'lark-to-sheet'; // default
+
+    // ======= UI helpers =======
+    function setAuthed(isAuthed){
+      el('btnLogout').disabled = !isAuthed;
+      el('sheetUrl').disabled = !isAuthed;
+      el('larkUrl').disabled = !isAuthed;
+      el('btnSavePair').disabled = !isAuthed;
+      el('btnSyncNow').disabled = !isAuthed;
+      el('btnLoadPairs').disabled = !isAuthed;
+      el('authPill').textContent = isAuthed ? `✅ ${userEmail}` : '🔒 Not signed in';
+    }
+
+    function setMode(mode){
+      masterMode = mode;
+      const a = mode === 'lark-to-sheet';
+      el('modeLark').dataset.active = a ? 'true' : 'false';
+      el('modeSheet').dataset.active = a ? 'false' : 'true';
+    }
+
+    el('modeLark').addEventListener('click', () => setMode('lark-to-sheet'));
+    el('modeSheet').addEventListener('click', () => setMode('sheet-to-lark'));
+
+    async function fetchJson(url, opts){
+      const res = await fetch(url, {
+        ...opts,
+        headers: { 'content-type':'application/json', ...(opts && opts.headers || {}) }
+      });
+      const txt = await res.text();
+      let data;
+      try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
+      if(!res.ok) throw new Error(data?.error || data?.message || `HTTP ${res.status}`);
+      return data;
+    }
+
+    // ======= Bootstrap config =======
+    async function bootstrap(){
+      const cfg = await fetchJson('/api/config');
+      CONFIG.historySheetId = cfg.historySheetId;
+      CONFIG.allowedDomain = cfg.allowedDomain;
+      el('historyIdLabel').textContent = CONFIG.historySheetId || '(missing)';
+      el('cronUrl').textContent = `${location.origin}/api/sync`;
+      log('Loaded config', cfg);
+      if(refreshToken && userEmail){
+        log('Found existing session in localStorage');
+        setAuthed(true);
+        await loadPairs();
+      } else {
+        setAuthed(false);
+      }
+    }
+
+    // ======= Google OAuth (popup) =======
+    function openPopup(url){
+      const w = 520, h = 680;
+      const y = window.top.outerHeight / 2 + window.top.screenY - ( h / 2);
+      const x = window.top.outerWidth  / 2 + window.top.screenX - ( w / 2);
+      return window.open(url, 'shd_google_oauth', `width=${w},height=${h},top=${y},left=${x}`);
+    }
+
+    el('btnLogin').addEventListener('click', async () => {
+      log('Opening Google login popup...');
+      const popup = openPopup('/api/auth/google/start');
+      if(!popup) {
+        alert('Popup ถูกบล็อก กรุณาอนุญาต pop-up แล้วลองใหม่');
+        return;
+      }
+    });
+
+    window.addEventListener('message', async (ev) => {
+      if(!ev?.data || ev.data.type !== 'shd_google_oauth') return;
+      const msg = ev.data;
+      if(msg.ok){
+        refreshToken = msg.refresh_token || '';
+        userEmail = msg.email || '';
+        if(!refreshToken){
+          alert('Login ได้ แต่ไม่ได้รับ refresh_token (ลองกด login ใหม่อีกครั้ง)');
+          log('WARN: no refresh_token returned');
+          return;
+        }
+        localStorage.setItem('google_refresh_token', refreshToken);
+        localStorage.setItem('google_user_email', userEmail);
+        log('✅ Logged in as', userEmail);
+        setAuthed(true);
+        await loadPairs();
+      } else {
+        alert('Login failed: ' + (msg.error || 'unknown'));
+        log('❌ Login failed', msg);
+      }
+    });
+
+    el('btnLogout').addEventListener('click', async () => {
+      localStorage.removeItem('google_refresh_token');
+      localStorage.removeItem('google_user_email');
+      refreshToken = '';
+      userEmail = '';
+      setAuthed(false);
+      el('pairsList').innerHTML = '';
+      el('pairsCount').textContent = '0';
+      log('Logged out');
+    });
+
+    // ======= Pair actions =======
+    function getInputs(){
+      const sheetUrl = el('sheetUrl').value.trim();
+      const larkUrl = el('larkUrl').value.trim();
+      if(!sheetUrl || !larkUrl) throw new Error('กรุณาใส่ลิงก์ให้ครบ');
+      return { sheetUrl, larkUrl, direction: masterMode };
+    }
+
+    el('btnSavePair').addEventListener('click', async () => {
+      try{
+        const payload = { ...getInputs(), refreshToken };
+        log('Saving pair...');
+        const out = await fetchJson('/api/pairs', { method:'POST', body: JSON.stringify(payload) });
+        log('✅ Saved', out);
+        await loadPairs();
+      } catch(e){
+        log('❌ Save error:', e.message);
+        alert(e.message);
+      }
+    });
+
+    el('btnSyncNow').addEventListener('click', async () => {
+      try{
+        const payload = { ...getInputs(), refreshToken, userEmail, source: 'manual' };
+        log('Sync now...');
+        const out = await fetchJson('/api/sync', { method:'POST', body: JSON.stringify({ pairs:[payload] }) });
+        log('✅ Sync result', out);
+        await loadPairs();
+      } catch(e){
+        log('❌ Sync error:', e.message);
+        alert(e.message);
+      }
+    });
+
+    el('btnLoadPairs').addEventListener('click', loadPairs);
+
+    async function loadPairs(){
+      log('Loading pairs from history sheet...');
+      const out = await fetchJson('/api/pairs', { method:'POST', body: JSON.stringify({ refreshToken }) });
+      const pairs = out.pairs || [];
+      el('pairsCount').textContent = String(pairs.length);
+      el('pairsList').innerHTML = pairs.map(p => `
+        <div class="pair">
+          <b>${p.direction === 'lark-to-sheet' ? 'Lark/Feishu → Sheet' : 'Sheet → Lark/Feishu'}</b>
+          <div class="meta">Sheet: ${p.sheetUrl}</div>
+          <div class="meta">Lark: ${p.larkUrl}</div>
+          <div class="meta">LastSync: ${p.lastSyncAt || '-'}</div>
+          <div class="actions">
+            <button class="primary" data-act="sync" data-id="${p.rowId}">Sync</button>
+            <button class="bad" data-act="deactivate" data-id="${p.rowId}">Deactivate</button>
+          </div>
+        </div>
+      `).join('');
+      el('pairsList').querySelectorAll('button[data-act]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const act = btn.dataset.act;
+          const id = btn.dataset.id;
+          if(act === 'deactivate'){
+            if(!confirm('Deactivate pair นี้? Cron จะไม่ sync ต่อ')) return;
+            await fetchJson('/api/pairs', { method:'PUT', body: JSON.stringify({ refreshToken, rowId:id, active:false }) });
+            await loadPairs();
+          } else if(act === 'sync'){
+            const pair = pairs.find(x => String(x.rowId) === String(id));
+            const out = await fetchJson('/api/sync', { method:'POST', body: JSON.stringify({ pairs:[{...pair, refreshToken, userEmail, source:'ui-pair'}] }) });
+            log('Pair sync result', out);
+            await loadPairs();
+          }
+        });
+      });
+      log('✅ Pairs loaded:', pairs.length);
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>
